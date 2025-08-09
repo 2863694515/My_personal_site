@@ -1,502 +1,501 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { Search, Plus, Star, Trash2, Link as LinkIcon, ExternalLink, Wrench, Settings, ChevronDown, X, Pencil } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import QRCode from "qrcode.react";
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>收藏与工具 · Tech</title>
+<meta name="theme-color" content="#06b6d4">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b1220; --card:#0f172a; --glass:rgba(17,24,39,.55);
+    --fg:#e5e7eb; --muted:#9aa4b2; --border:#1f2937; --brand:#06b6d4; --brand2:#60a5fa;
+    --shadow:0 12px 30px rgba(0,0,0,.35);
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; color:var(--fg);
+    font:14px/1.6 Montserrat, system-ui, -apple-system, Segoe UI, Roboto;
+    background:radial-gradient(1200px 600px at -10% -20%, rgba(96,165,250,.15), transparent 60%),
+               radial-gradient(1000px 500px at 110% 10%, rgba(6,182,212,.18), transparent 60%),
+               var(--bg);
+    overflow-x:hidden;
+  }
+  .gridbg{
+    position:fixed; inset:0; pointer-events:none; z-index:-2;
+    background-image:
+      linear-gradient(rgba(96,165,250,.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(6,182,212,.08) 1px, transparent 1px);
+    background-size:60px 60px, 60px 60px;
+    animation: slide 18s linear infinite;
+    mask-image: radial-gradient(circle at 30% 30%, rgba(0,0,0,.9), transparent 70%);
+  }
+  @keyframes slide{0%{background-position:0 0,0 0}100%{background-position:120px 60px,60px 120px}}
+  #fx{position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.6}
 
-// ---- 可自定义：初始收藏分类与条目 ----
+  header{position:sticky; top:0; z-index:30; backdrop-filter: blur(10px) saturate(1.2);
+    background:linear-gradient(180deg, rgba(24,35,54,.75), rgba(24,35,54,.45)); border-bottom:1px solid var(--border)}
+  .wrap{max-width:1200px; margin:0 auto; padding:14px 18px}
+  h1{margin:0; font-size:18px; display:flex; gap:10px; align-items:center; letter-spacing:.2px}
+  .brand{color:var(--brand)}
+  .row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .grow{flex:1}
+  .glass{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+  input[type="text"], input[type="url"], select, textarea{
+    width:100%; border:1px solid var(--border); background:#0b1324; color:var(--fg);
+    border-radius:14px; padding:10px 12px; outline:0; font-family:inherit
+  }
+  .btn{position:relative; border:1px solid #1f2a44; background:linear-gradient(180deg,#162238,#0e172a);
+    color:#e5e7eb; border-radius:14px; padding:9px 14px; cursor:pointer; overflow:hidden; transition:.15s transform, .2s box-shadow}
+  .btn:hover{transform:translateY(-1px); box-shadow:0 10px 20px rgba(6,182,212,.2)}
+  .btn.primary{border-color:transparent; background:linear-gradient(135deg, var(--brand), var(--brand2)); color:#021b21}
+  .btn.ghost{background:transparent}
+  .chip{padding:7px 12px; border:1px solid var(--border); border-radius:999px; background:#0b1324; color:#cbd5e1; cursor:pointer; font-size:12px}
+  .chip.active{background:linear-gradient(135deg, rgba(6,182,212,.2), rgba(96,165,250,.2)); color:#e6faff; border-color:transparent}
+  .toolbar{display:flex; gap:10px; overflow:auto; padding:10px 0 16px}
+  main{display:grid; grid-template-columns:2fr 1fr; gap:18px; padding:18px}
+  @media(max-width:1020px){ main{grid-template-columns:1fr} }
+  .card{border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden}
+  .card .hd{display:flex; justify-content:space-between; align-items:end; padding:12px 14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.04), transparent); border-bottom:1px solid var(--border)}
+  .card .bd{padding:14px}
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+  @media(max-width:1200px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  .link{border:1px solid var(--border); border-radius:16px; padding:12px; display:flex; gap:12px; align-items:flex-start;
+    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); transition:.15s transform, .15s box-shadow}
+  .link:hover{transform:translateY(-2px); box-shadow:0 10px 26px rgba(2,8,23,.45)}
+  .icon{width:40px; height:40px; border-radius:12px; background:#0b1324; display:grid; place-items:center; overflow:hidden; border:1px solid #1f2937}
+  .icon img{width:100%; height:100%; object-fit:cover}
+  .ttl{font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .host{font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:"JetBrains Mono", monospace}
+  .tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+  .tag{font-size:10px; border:1px dashed #2a3a5b; background:#0b1324; border-radius:999px; padding:2px 6px}
+  .actions{margin-left:auto; display:flex; gap:6px}
+  .muted{color:var(--muted)}
+  .kbd{border:1px solid var(--border); border-bottom-width:2px; border-radius:6px; padding:.5px 6px; font-size:11px; background:#0b1324}
+  footer{color:var(--muted); text-align:center; padding:18px 0}
+  .tip{font-size:12px; color:var(--muted)}
+  .layer{position:fixed; inset:0; background:rgba(3,7,18,.6); display:grid; place-items:center; padding:16px}
+  .dialog{width:min(620px,100%); background:#0f172a; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
+  .hidden{display:none !important}
+  #toast{position:fixed; left:50%; bottom:18px; transform:translateX(-50%); padding:10px 14px; border-radius:10px;
+    background:linear-gradient(135deg, var(--brand), var(--brand2)); color:#05131a; opacity:0; transition:.3s; pointer-events:none; font-weight:700}
+  #toast.show{opacity:1; transform:translate(-50%,-6px)}
+  hr{border:0; height:1px; background:linear-gradient(90deg, transparent, rgba(96,165,250,.6), transparent); opacity:.6}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="gridbg"></div>
+
+<header class="glass">
+  <div class="wrap row">
+    <h1>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 4v8l-7 4-7-4V7l7-4z" stroke="url(#g1)" stroke-width="1.6"/><defs><linearGradient id="g1" x1="0" y1="0" x2="24" y2="24"><stop stop-color="#06b6d4"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs></svg>
+      <span>收藏与工具 · <span class="brand">Tech</span></span>
+    </h1>
+    <input id="search" class="grow" type="text" placeholder="搜索 标题 / 链接 / 标签（按 / 聚焦）" />
+    <button id="addBtn" class="btn primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#02202a" stroke-width="2" stroke-linecap="round"/></svg> 添加
+    </button>
+    <button id="starFilter" class="btn" title="仅看收藏（S）">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6z" stroke="#9bdaf0" stroke-width="1.5"/></svg>
+    </button>
+    <div class="row">
+      <button id="exportBtn" class="btn">导出</button>
+      <label class="chip">导入<input id="importFile" type="file" accept="application/json" class="hidden"></label>
+    </div>
+  </div>
+  <div class="wrap toolbar" id="catBar"></div>
+</header>
+
+<main>
+  <section class="card glass">
+    <div class="hd">
+      <div>链接库 <span class="muted" id="countInfo"></span></div>
+      <div class="tip">拖动卡片可在分类内排序 · 快捷键：<span class="kbd">/</span>搜索 <span class="kbd">N</span>新建 <span class="kbd">S</span>收藏筛选</div>
+    </div>
+    <div class="bd">
+      <div class="grid" id="linksGrid"></div>
+    </div>
+  </section>
+
+  <aside class="card glass">
+    <div class="hd"><div>快速添加 & 小工具</div></div>
+    <div class="bd" style="display:grid;gap:12px">
+      <div>
+        <div class="tip" style="margin-bottom:6px">粘贴网址自动生成标题（取域名），可选写标签</div>
+        <div class="row">
+          <input id="quickUrl" type="url" placeholder="https://..." />
+          <input id="quickTags" type="text" placeholder="标签 逗号分隔（可选）" style="max-width:220px" />
+          <select id="quickCat" style="max-width:190px"></select>
+          <button id="quickAdd" class="btn primary">添加</button>
+        </div>
+      </div>
+      <hr/>
+      <div class="row" style="align-items:flex-start">
+        <div style="flex:1">
+          <div class="tip">⏱ 实时时钟</div>
+          <div id="clock" style="font:600 26px 'JetBrains Mono', monospace; letter-spacing:.5px; margin-top:6px"></div>
+          <div id="clock2" class="muted" style="font-family:'JetBrains Mono', monospace; font-size:12px"></div>
+        </div>
+        <div style="flex:1">
+          <div class="tip">📍 地址（浏览器定位）</div>
+          <div id="geoBox" class="muted" style="min-height:40px; margin-top:6px">点击获取位置信息（需授权）</div>
+          <button id="locBtn" class="btn" style="margin-top:8px">获取我的位置</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer class="wrap">数据保存在你的浏览器（localStorage）。清理浏览器数据会清空收藏。</footer>
+
+<div id="modal" class="layer hidden">
+  <div class="dialog">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <b id="modalTitle">添加链接</b>
+      <button onclick="closeModal()" class="btn ghost">✕</button>
+    </div>
+    <div style="padding:12px 14px;display:grid;gap:8px">
+      <label>分类
+        <select id="formCat"></select>
+      </label>
+      <label>标题
+        <input id="formTitle" type="text" placeholder="例如：Google Scholar" />
+      </label>
+      <label>URL
+        <input id="formUrl" type="url" placeholder="https://..." />
+      </label>
+      <label>标签（用逗号分隔）
+        <input id="formTags" type="text" placeholder="paper, ai, tool" />
+      </label>
+      <label><input id="formStar" type="checkbox" /> 设为收藏</label>
+      <div class="row" style="justify-content:end">
+        <button class="btn ghost" onclick="closeModal()">取消</button>
+        <button class="btn primary" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast">已保存</div>
+
+<script>
+const canvas = document.getElementById('fx');
+const ctx = canvas.getContext('2d');
+let W, H, P=[];
+function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
+for(let i=0;i<80;i++) P.push({x:Math.random()*W, y:Math.random()*H, vx:(Math.random()-.5)*0.5, vy:(Math.random()-.5)*0.5});
+function tick(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='rgba(96,165,250,.6)';
+  for(const p of P){
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0||p.x>W) p.vx*=-1; if(p.y<0||p.y>H) p.vy*=-1;
+    ctx.beginPath(); ctx.arc(p.x,p.y,1.2,0,Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle='rgba(6,182,212,.25)';
+  for(let i=0;i<P.length;i++) for(let j=i+1;j<P.length;j++){
+    const a=P[i], b=P[j]; const dx=a.x-b.x, dy=a.y-b.y; const d=Math.hypot(dx,dy);
+    if(d<120){ ctx.globalAlpha = 1 - d/120; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); ctx.globalAlpha=1; }
+  }
+  requestAnimationFrame(tick);
+}
+tick();
+
+const STORAGE_KEY = "my_links_hub_tech_v1";
 const DEFAULT_DATA = [
-  {
-    id: "dev",
-    name: "开发 / Developer",
-    links: [
-      { id: cryptoId(), title: "GitHub", url: "https://github.com", tags: ["code", "repo"], starred: true },
-      { id: cryptoId(), title: "Stack Overflow", url: "https://stackoverflow.com", tags: ["qa"], starred: false },
-      { id: cryptoId(), title: "MDN Docs", url: "https://developer.mozilla.org", tags: ["docs"], starred: false },
-    ],
-  },
-  {
-    id: "research",
-    name: "研究 / Research",
-    links: [
-      { id: cryptoId(), title: "Google Scholar", url: "https://scholar.google.com", tags: ["paper"], starred: true },
-      { id: cryptoId(), title: "arXiv", url: "https://arxiv.org", tags: ["preprint"], starred: false },
-    ],
-  },
-  {
-    id: "life",
-    name: "生活 / Life",
-    links: [
-      { id: cryptoId(), title: "Bilibili", url: "https://www.bilibili.com/", tags: ["video"], starred: false },
-      { id: cryptoId(), title: "小红书", url: "https://www.xiaohongshu.com/", tags: ["share"], starred: false },
-    ],
-  },
+  {id:"dev", name:"开发 / Developer", links:[
+    {id:uid(), title:"GitHub", url:"https://github.com", tags:["code","repo"], starred:true},
+    {id:uid(), title:"Stack Overflow", url:"https://stackoverflow.com", tags:["qa"]},
+    {id:uid(), title:"MDN Docs", url:"https://developer.mozilla.org", tags:["docs"]},
+  ]},
+  {id:"research", name:"研究 / Research", links:[
+    {id:uid(), title:"Google Scholar", url:"https://scholar.google.com", tags:["paper"], starred:true},
+    {id:uid(), title:"arXiv", url:"https://arxiv.org", tags:["preprint"]},
+  ]},
+  {id:"life", name:"生活 / Life", links:[
+    {id:uid(), title:"Bilibili", url:"https://www.bilibili.com", tags:["video"]},
+  ]},
 ];
+let state = load() || DEFAULT_DATA;
+function load(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||""); }catch(e){ return null; } }
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
-function cryptoId() {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return Math.random().toString(36).slice(2);
+let activeCat = "all";
+let search = "";
+let starOnly = false;
+
+const catBar = document.getElementById("catBar");
+const grid = document.getElementById("linksGrid");
+const countInfo = document.getElementById("countInfo");
+const searchBox = document.getElementById("search");
+const addBtn = document.getElementById("addBtn");
+const starBtn = document.getElementById("starFilter");
+const exportBtn = document.getElementById("exportBtn");
+const importFile = document.getElementById("importFile");
+const toast = document.getElementById("toast");
+const qUrl = document.getElementById("quickUrl");
+const qTags = document.getElementById("quickTags");
+const qCat = document.getElementById("quickCat");
+const qAdd = document.getElementById("quickAdd");
+const clock = document.getElementById('clock'); const clock2 = document.getElementById('clock2');
+const locBtn = document.getElementById('locBtn'); const geoBox = document.getElementById('geoBox');
+
+renderCats();
+renderLinks();
+fillQuickCats();
+searchBox.addEventListener("input", e => { search = e.target.value.trim().toLowerCase(); renderLinks(); });
+addBtn.addEventListener("click", () => openAddModal());
+starBtn.addEventListener("click", () => { starOnly = !starOnly; starBtn.classList.toggle("primary", starOnly); renderLinks(); });
+exportBtn.addEventListener("click", onExport);
+importFile.addEventListener("change", onImport);
+qAdd.addEventListener("click", quickAdd);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/"){ e.preventDefault(); searchBox.focus(); }
+  if (e.key.toLowerCase() === "n"){ openAddModal(); }
+  if (e.key.toLowerCase() === "s"){ starBtn.click(); }
+});
+
+setInterval(()=>{
+  const d = new Date();
+  clock.textContent = d.toLocaleTimeString();
+  clock2.textContent = d.toLocaleDateString() + " · " + Intl.DateTimeFormat().resolvedOptions().timeZone;
+}, 1000);
+
+locBtn.addEventListener('click', () => {
+  if(!navigator.geolocation){ geoBox.textContent = "你的浏览器不支持定位。"; return; }
+  geoBox.textContent = "定位中…";
+  navigator.geolocation.getCurrentPosition((pos)=>{
+    const {latitude, longitude} = pos.coords;
+    const link = `https://maps.google.com/?q=${latitude},${longitude}`;
+    geoBox.innerHTML = `坐标：<code>${latitude.toFixed(5)}, ${longitude.toFixed(5)}</code><br/>
+      <a href="${link}" target="_blank">在地图中打开</a>`;
+  }, (err)=>{
+    geoBox.textContent = "定位失败：" + err.message;
+  });
+});
+
+function renderCats(){
+  const cats = [{id:"all", name:"全部"}, ...state.map(c => ({id:c.id, name:c.name}))];
+  catBar.innerHTML = "";
+  cats.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (activeCat===c.id ? " active" : "");
+    btn.textContent = c.name;
+    btn.onclick = () => { activeCat = c.id; renderLinks(); renderCats(); };
+    catBar.appendChild(btn);
+  });
+  const addCat = document.createElement("button");
+  addCat.className = "chip";
+  addCat.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:6px"><path d="M12 5v14M5 12h14" stroke="#9bdaf0" stroke-width="2" stroke-linecap="round"/></svg> 新建分类';
+  addCat.onclick = () => {
+    const name = prompt("分类名称（如：学习、工作…）");
+    if(!name) return;
+    const id = name.toLowerCase().replace(/\s+/g,"-") + "-" + Date.now().toString().slice(-4);
+    state = [{id, name, links:[]}, ...state];
+    save(); renderCats(); fillQuickCats(); toastMsg("已创建分类");
+  };
+  catBar.appendChild(addCat);
 }
 
-const STORAGE_KEY = "my_links_hub_v1";
+function renderLinks(){
+  const allLinks = state.flatMap(c => c.links.map(l => ({...l, catId:c.id, catName:c.name})));
+  const filtered = allLinks.filter(l => {
+    const inCat = activeCat==="all" || l.catId===activeCat;
+    if(!inCat) return false;
+    if(starOnly && !l.starred) return false;
+    if(!search) return true;
+    return (l.title?.toLowerCase().includes(search) ||
+            l.url?.toLowerCase().includes(search) ||
+            (l.tags||[]).some(t => t.toLowerCase().includes(search)));
+  });
+  countInfo.textContent = `（共 ${filtered.length} 条）`;
+  grid.innerHTML = "";
+  filtered.forEach(l => grid.appendChild(linkNode(l)));
+  if(activeCat !== "all"){ enableDragDrop(); }
+}
 
-export default function App() {
-  const [collections, setCollections] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : DEFAULT_DATA;
-    } catch (e) {
-      return DEFAULT_DATA;
+function linkNode(l){
+  const el = document.createElement("div");
+  el.className = "link";
+  el.setAttribute("data-id", l.id);
+  el.setAttribute("draggable", true);
+  const host = safeHost(l.url);
+  const ico = host ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64` : "";
+  el.innerHTML = `
+    <div class="icon">${ico ? `<img src="${ico}" alt="">` : svgIcon()}</div>
+    <div style="min-width:0;flex:1">
+      <div class="ttl" title="${esc(l.title||"")}">${esc(l.title||"")}</div>
+      <div class="host" title="${esc(host)}">${esc(host)}</div>
+      ${(l.tags?.length?`<div class="tags">${l.tags.map(t=>`<span class="tag">#${esc(t)}</span>`).join("")}</div>`:"")}
+    </div>
+    <div class="actions">
+      <button class="btn" title="收藏/取消收藏" onclick="toggleStar('${l.catId}','${l.id}')">${l.starred?starOn():starOff()}</button>
+      <a href="${escAttr(l.url||"#")}" target="_blank"><button class="btn" title="打开">${openIcon()}</button></a>
+      <button class="btn" title="编辑" onclick="openEditModal('${l.catId}','${l.id}')">${editIcon()}</button>
+      <button class="btn" title="删除" onclick="delLink('${l.catId}','${l.id}')">${trashIcon()}</button>
+    </div>`;
+  return el;
+}
+
+function enableDragDrop(){
+  const cards = grid.querySelectorAll(".link");
+  cards.forEach(card => {
+    card.addEventListener("dragstart", (e) => { card.classList.add("dragging"); e.dataTransfer.setData("text/plain", card.dataset.id); });
+    card.addEventListener("dragend", () => card.classList.remove("dragging"));
+  });
+  grid.addEventListener("dragover", (e) => { e.preventDefault();
+    const dragging = grid.querySelector(".dragging");
+    const afterEl = getDragAfterElement(grid, e.clientY);
+    if(dragging){
+      if(afterEl == null) grid.appendChild(dragging);
+      else grid.insertBefore(dragging, afterEl);
     }
   });
-  const [q, setQ] = useState("");
-  const [activeCat, setActiveCat] = useState("all");
-  const [showAdd, setShowAdd] = useState(false);
-  const [editing, setEditing] = useState(null); // {catId, link}
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(collections));
-  }, [collections]);
-
-  const allLinks = useMemo(() => {
-    return collections.flatMap((c) => c.links.map((l) => ({ ...l, catId: c.id, catName: c.name })));
-  }, [collections]);
-
-  const filtered = useMemo(() => {
-    const keyword = q.trim().toLowerCase();
-    return allLinks.filter((l) => {
-      const inCat = activeCat === "all" || l.catId === activeCat || (activeCat === "star" && l.starred);
-      if (!inCat) return false;
-      if (!keyword) return true;
-      return (
-        l.title.toLowerCase().includes(keyword) ||
-        l.url.toLowerCase().includes(keyword) ||
-        (l.tags || []).some((t) => t.toLowerCase().includes(keyword))
-      );
-    });
-  }, [allLinks, q, activeCat]);
-
-  const cats = useMemo(() => [{ id: "all", name: "全部" }, { id: "star", name: "⭐ 收藏" }, ...collections.map(({ id, name }) => ({ id, name }))], [collections]);
-
-  function addLink(catId, payload) {
-    setCollections((prev) => prev.map((c) => (c.id === catId ? { ...c, links: [{ id: cryptoId(), ...payload }, ...c.links] } : c)));
-  }
-  function updateLink(catId, linkId, payload) {
-    setCollections((prev) => prev.map((c) => (c.id === catId ? { ...c, links: c.links.map((l) => (l.id === linkId ? { ...l, ...payload } : l)) } : c)));
-  }
-  function deleteLink(catId, linkId) {
-    setCollections((prev) => prev.map((c) => (c.id === catId ? { ...c, links: c.links.filter((l) => l.id !== linkId) } : c)));
-  }
-  function toggleStar(catId, linkId) {
-    setCollections((prev) => prev.map((c) => (c.id === catId ? { ...c, links: c.links.map((l) => (l.id === linkId ? { ...l, starred: !l.starred } : l)) } : c)));
-  }
-  function addCategory(name) {
-    const id = name.toLowerCase().replace(/\s+/g, "-") + "-" + Date.now().toString().slice(-4);
-    setCollections((prev) => [{ id, name, links: [] }, ...prev]);
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 text-slate-800">
-      <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Wrench className="w-6 h-6" />
-          <h1 className="text-xl font-semibold">我的收藏与工具</h1>
-          <span className="ml-auto hidden md:flex items-center gap-2 rounded-full border px-3 py-1">
-            <Search className="w-4 h-4" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="搜索标题 / 链接 / 标签"
-              className="bg-transparent outline-none text-sm w-64"
-            />
-          </span>
-          <Button className="ml-2" onClick={() => setShowAdd(true)}>
-            <Plus className="w-4 h-4 mr-1" /> 添加链接
-          </Button>
-        </div>
-        <div className="max-w-6xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto">
-          {cats.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setActiveCat(c.id)}
-              className={`px-3 py-1 rounded-full text-sm border ${activeCat === c.id ? "bg-slate-900 text-white" : "bg-white hover:bg-slate-50"}`}
-            >
-              {c.name}
-            </button>
-          ))}
-          <AddCategory onAdd={addCategory} />
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 py-6 grid lg:grid-cols-3 gap-6">
-        <section className="lg:col-span-2">
-          <SectionTitle title="链接库" subtitle={`共 ${filtered.length} 条`} />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map((l) => (
-              <LinkCard
-                key={l.id}
-                link={l}
-                onStar={() => toggleStar(l.catId, l.id)}
-                onDelete={() => deleteLink(l.catId, l.id)}
-                onEdit={() => setEditing({ catId: l.catId, link: l })}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <SectionTitle title="常用小工具" subtitle="本地运行，无需网络" />
-          <ToolsPanel />
-        </section>
-      </main>
-
-      <footer className="max-w-6xl mx-auto px-4 py-8 text-center text-sm text-slate-500">
-        <p>本地保存：数据存储在浏览器 localStorage 中。清理浏览器数据会清空收藏。</p>
-        <p className="mt-1">© {new Date().getFullYear()} 我的收藏与工具</p>
-      </footer>
-
-      {showAdd && (
-        <AddLinkModal
-          collections={collections}
-          onClose={() => setShowAdd(false)}
-          onSubmit={(catId, payload) => {
-            addLink(catId, payload);
-            setShowAdd(false);
-          }}
-        />
-      )}
-
-      {editing && (
-        <EditLinkModal
-          initial={editing.link}
-          onClose={() => setEditing(null)}
-          onSubmit={(payload) => {
-            updateLink(editing.catId, editing.link.id, payload);
-            setEditing(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function SectionTitle({ title, subtitle }) {
-  return (
-    <div className="mb-3 flex items-end justify-between">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {subtitle && <span className="text-xs text-slate-500">{subtitle}</span>}
-    </div>
-  );
-}
-
-function LinkCard({ link, onStar, onDelete, onEdit }) {
-  const hostname = useMemo(() => {
-    try {
-      const u = new URL(link.url);
-      return u.hostname.replace(/^www\./, "");
-    } catch (e) {
-      return "";
+  grid.addEventListener("drop", () => {
+    const ids = Array.from(grid.querySelectorAll(".link")).map(el => el.dataset.id);
+    const idx = state.findIndex(c=>c.id===activeCat);
+    if(idx>=0){
+      const map = new Map(state[idx].links.map(l=>[l.id,l]));
+      state[idx].links = ids.map(id => map.get(id)).filter(Boolean);
+      save(); toastMsg("已更新排序");
     }
-  }, [link.url]);
-
-  return (
-    <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      <Card className="rounded-2xl shadow-sm hover:shadow">
-        <CardContent className="p-3">
-          <div className="flex items-start gap-2">
-            <div className="shrink-0 w-8 h-8 rounded-lg bg-slate-100 grid place-items-center">
-              <LinkIcon className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <a href={link.url} target="_blank" rel="noreferrer" className="font-medium line-clamp-1 hover:underline">
-                {link.title}
-              </a>
-              <div className="text-xs text-slate-500 line-clamp-1">{hostname}</div>
-              {link.tags?.length ? (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {link.tags.map((t) => (
-                    <span key={t} className="text-[10px] border rounded-full px-2 py-[2px]">
-                      #{t}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="ml-auto flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={onStar} title="收藏/取消收藏">
-                <Star className={`w-4 h-4 ${link.starred ? "fill-yellow-400" : ""}`} />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onEdit} title="编辑">
-                <Pencil className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={onDelete} title="删除">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-              <a href={link.url} target="_blank" rel="noreferrer" title="打开">
-                <Button variant="ghost" size="icon">
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-              </a>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
+  });
+}
+function getDragAfterElement(container, y){
+  const els = [...container.querySelectorAll(".link:not(.dragging)")];
+  return els.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-function AddCategory({ onAdd }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  return (
-    <div className="relative">
-      <Button variant="outline" onClick={() => setOpen((v) => !v)} className="text-sm">
-        新建分类 <ChevronDown className="w-4 h-4 ml-1" />
-      </Button>
-      {open && (
-        <div className="absolute z-20 mt-2 bg-white border rounded-xl p-3 shadow">
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="分类名称，如：学习、工作…"
-            className="border rounded-lg px-3 py-2 w-64"
-          />
-          <div className="mt-2 flex gap-2 justify-end">
-            <Button variant="ghost" onClick={() => setOpen(false)}>取消</Button>
-            <Button
-              onClick={() => {
-                if (name.trim()) onAdd(name.trim());
-                setName("");
-                setOpen(false);
-              }}
-            >确定</Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function openAddModal(){
+  editing = null;
+  modalTitle.textContent = "添加链接";
+  fillCatOptions();
+  formTitle.value = ""; formUrl.value = ""; formTags.value = ""; formStar.checked = false;
+  saveBtn.onclick = () => {
+    const c = formCat.value, t=formTitle.value.trim(), u=formUrl.value.trim();
+    if(!c || !t || !u) return alert("请填写完整：分类、标题、URL");
+    addLink(c, {title:t, url:u, tags:splitTags(formTags.value), starred:formStar.checked});
+    closeModal(); toastMsg("已添加");
+  };
+  openModal();
 }
 
-function AddLinkModal({ collections, onClose, onSubmit }) {
-  const [catId, setCatId] = useState(collections[0]?.id || "");
-  const [title, setTitle] = useState("");
-  const [url, setUrl] = useState("");
-  const [tags, setTags] = useState("");
-  const [starred, setStarred] = useState(false);
+function openEditModal(catId, linkId){
+  editing = {catId, linkId};
+  modalTitle.textContent = "编辑链接";
+  fillCatOptions(catId);
+  const link = state.find(c=>c.id===catId).links.find(x=>x.id===linkId);
+  formTitle.value = link.title||""; formUrl.value = link.url||""; formTags.value = (link.tags||[]).join(", "); formStar.checked = !!link.starred;
+  saveBtn.onclick = () => {
+    updateLink(catId, linkId, {title:formTitle.value.trim(), url:formUrl.value.trim(), tags:splitTags(formTags.value), starred:formStar.checked});
+    closeModal(); toastMsg("已保存");
+  };
+  openModal();
+}
+function openModal(){ modal.classList.remove("hidden"); }
+function closeModal(){ modal.classList.add("hidden"); }
 
-  return (
-    <Modal title="添加链接" onClose={onClose}>
-      <div className="grid gap-3">
-        <label className="text-sm">
-          分类
-          <select className="w-full border rounded-lg px-3 py-2 mt-1" value={catId} onChange={(e) => setCatId(e.target.value)}>
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          标题
-          <input className="w-full border rounded-lg px-3 py-2 mt-1" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例如：Google Scholar" />
-        </label>
-        <label className="text-sm">
-          URL
-          <input className="w-full border rounded-lg px-3 py-2 mt-1" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
-        </label>
-        <label className="text-sm">
-          标签（用逗号分隔）
-          <input className="w-full border rounded-lg px-3 py-2 mt-1" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="paper, ai, tool" />
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={starred} onChange={(e) => setStarred(e.target.checked)} />
-          设为收藏
-        </label>
-        <div className="pt-2 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>取消</Button>
-          <Button
-            onClick={() => {
-              if (!title.trim() || !url.trim()) return;
-              onSubmit(catId, { title: title.trim(), url: url.trim(), tags: tagsToArr(tags), starred });
-            }}
-          >保存</Button>
-        </div>
-      </div>
-    </Modal>
-  );
+function fillCatOptions(selectedId){
+  formCat.innerHTML = state.map(c=>`<option value="${c.id}" ${selectedId===c.id?"selected":""}>${esc(c.name)}</option>`).join("");
+}
+function fillQuickCats(){
+  qCat.innerHTML = state.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
 }
 
-function EditLinkModal({ initial, onClose, onSubmit }) {
-  const [title, setTitle] = useState(initial.title || "");
-  const [url, setUrl] = useState(initial.url || "");
-  const [tags, setTags] = useState((initial.tags || []).join(", "));
-  const [starred, setStarred] = useState(!!initial.starred);
-
-  return (
-    <Modal title="编辑链接" onClose={onClose}>
-      <div className="grid gap-3">
-        <label className="text-sm">
-          标题
-          <input className="w-full border rounded-lg px-3 py-2 mt-1" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-        <label className="text-sm">
-          URL
-          <input className="w-full border rounded-lg px-3 py-2 mt-1" value={url} onChange={(e) => setUrl(e.target.value)} />
-        </label>
-        <label className="text-sm">
-          标签（用逗号分隔）
-          <input className="w-full border rounded-lg px-3 py-2 mt-1" value={tags} onChange={(e) => setTags(e.target.value)} />
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={starred} onChange={(e) => setStarred(e.target.checked)} />
-          设为收藏
-        </label>
-        <div className="pt-2 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>取消</Button>
-          <Button onClick={() => onSubmit({ title: title.trim(), url: url.trim(), tags: tagsToArr(tags), starred })}>保存</Button>
-        </div>
-      </div>
-    </Modal>
-  );
+function addLink(catId, payload){
+  const idx = state.findIndex(c=>c.id===catId);
+  if(idx<0) return;
+  state[idx] = {...state[idx], links:[{id:uid(), ...payload}, ...state[idx].links]};
+  save(); renderLinks();
+}
+function updateLink(catId, linkId, payload){
+  state = state.map(c => c.id===catId ? {...c, links: c.links.map(l => l.id===linkId ? {...l, ...payload} : l)} : c);
+  save(); renderLinks();
+}
+function delLink(catId, linkId){
+  if(!confirm("确定要删除这条链接吗？")) return;
+  state = state.map(c => c.id===catId ? {...c, links: c.links.filter(l=>l.id!==linkId)} : c);
+  save(); renderLinks(); toastMsg("已删除");
+}
+function toggleStar(catId, linkId){
+  state = state.map(c => c.id===catId ? {...c, links: c.links.map(l => l.id===linkId ? {...l, starred:!l.starred} : l)} : c);
+  save(); renderLinks();
 }
 
-function Modal({ title, children, onClose }) {
-  useEffect(() => {
-    const handler = (e) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/30 p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-slate-100">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  );
+function quickAdd(){
+  const url = qUrl.value.trim();
+  if(!url) return alert("请填入网址");
+  const cat = qCat.value;
+  const titleGuess = safeHost(url);
+  addLink(cat, {title: titleGuess || url, url, tags: splitTags(qTags.value), starred: false});
+  qUrl.value = ""; qTags.value = "";
+  toastMsg("已添加");
 }
 
-function ToolsPanel() {
-  return (
-    <div className="grid gap-4">
-      <ToolCard title="URL 编解码">
-        <URLEncoder />
-      </ToolCard>
-      <ToolCard title="Base64 编解码">
-        <Base64Tool />
-      </ToolCard>
-      <ToolCard title="文本大小写转换">
-        <CaseTool />
-      </ToolCard>
-      <ToolCard title="二维码生成">
-        <QRTool />
-      </ToolCard>
-    </div>
-  );
+function onExport(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "my-links-backup.json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+async function onImport(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  try{
+    const data = JSON.parse(text);
+    if(!Array.isArray(data)) throw new Error("格式不正确");
+    state = data; save(); renderCats(); renderLinks(); fillQuickCats();
+    toastMsg("导入成功");
+  }catch(err){ alert("导入失败：" + err.message); }
+  e.target.value = "";
 }
 
-function ToolCard({ title, children }) {
-  return (
-    <Card className="rounded-2xl shadow-sm">
-      <CardContent className="p-4">
-        <div className="mb-2 font-medium flex items-center gap-2">
-          <Wrench className="w-4 h-4" /> {title}
-        </div>
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
+function uid(){ return Math.random().toString(36).slice(2) + Date.now().toString(36).slice(-4); }
+function splitTags(s){ return s.split(/[，,]/).map(t=>t.trim()).filter(Boolean); }
+function safeHost(url){ try{ return new URL(url).hostname.replace(/^www\./,""); }catch(e){ return ""; } }
+function esc(s){ return (s||"").replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c])); }
+function escAttr(s){ return esc(s).replace(/\"/g,"&quot;"); }
 
-function URLEncoder() {
-  const [text, setText] = useState("");
-  return (
-    <div className="grid gap-2">
-      <textarea className="border rounded-lg p-2 min-h-[80px]" value={text} onChange={(e) => setText(e.target.value)} placeholder="输入要编码/解码的文本" />
-      <div className="flex gap-2">
-        <Button onClick={() => setText(encodeURIComponent(text))}>编码</Button>
-        <Button variant="outline" onClick={() => setText(decodeURIComponentSafe(text))}>解码</Button>
-      </div>
-    </div>
-  );
-}
+function svgIcon(){ return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4v10l-8 4-8-4V7z" stroke="#67e8f9" stroke-width="1.4"/></svg>'; }
+function starOn(){ return '<svg width="16" height="16" viewBox="0 0 24 24" fill="#facc15"><path d="M12 3l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6z"/></svg>'; }
+function starOff(){ return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1 3-6z" stroke="#9bdaf0"/></svg>'; }
+function openIcon(){ return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M14 3h7v7M21 3l-8 8" stroke="#9bdaf0" stroke-width="1.6" stroke-linecap="round"/><path d="M20 13v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6" stroke="#9bdaf0" stroke-width="1.4"/></svg>'; }
+function editIcon(){ return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 20h4l10-10-4-4L4 16v4z" stroke="#9bdaf0" stroke-width="1.4"/></svg>'; }
+function trashIcon(){ return '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6l1-2h6l1 2M6 6l1 14h10l1-14" stroke="#9bdaf0" stroke-width="1.4"/></svg>'; }
 
-function Base64Tool() {
-  const [text, setText] = useState("");
-  return (
-    <div className="grid gap-2">
-      <textarea className="border rounded-lg p-2 min-h-[80px]" value={text} onChange={(e) => setText(e.target.value)} placeholder="输入要 Base64 编码/解码的文本" />
-      <div className="flex gap-2">
-        <Button onClick={() => setText(btoa(unescape(encodeURIComponent(text))))}>编码</Button>
-        <Button variant="outline" onClick={() => setText(tryBase64Decode(text))}>解码</Button>
-      </div>
-    </div>
-  );
-}
+const modal = document.getElementById("modal");
+const modalTitle = document.getElementById("modalTitle");
+const formCat = document.getElementById("formCat");
+const formTitle = document.getElementById("formTitle");
+const formUrl = document.getElementById("formUrl");
+const formTags = document.getElementById("formTags");
+const formStar = document.getElementById("formStar");
+const saveBtn = document.getElementById("saveBtn");
+let editing = null;
+document.addEventListener("keydown", e => { if(e.key==="Escape" && !modal.classList.contains("hidden")) closeModal(); });
 
-function CaseTool() {
-  const [text, setText] = useState("");
-  return (
-    <div className="grid gap-2">
-      <textarea className="border rounded-lg p-2 min-h-[80px]" value={text} onChange={(e) => setText(e.target.value)} placeholder="输入文本" />
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setText(text.toUpperCase())}>UPPER</Button>
-        <Button onClick={() => setText(text.toLowerCase())}>lower</Button>
-        <Button onClick={() => setText(toTitleCase(text))}>Title Case</Button>
-        <Button variant="outline" onClick={() => { navigator.clipboard.writeText(text); }}>复制</Button>
-      </div>
-    </div>
-  );
-}
-
-function QRTool() {
-  const [value, setValue] = useState("https://");
-  const [size, setSize] = useState(160);
-  return (
-    <div className="grid gap-3">
-      <input className="border rounded-lg px-3 py-2" value={value} onChange={(e) => setValue(e.target.value)} placeholder="输入网址或文本" />
-      <div className="flex items-center gap-2 text-sm">
-        尺寸
-        <input type="range" min={120} max={320} value={size} onChange={(e) => setSize(parseInt(e.target.value))} />
-        <span>{size}px</span>
-      </div>
-      <div className="grid place-items-center p-3">
-        <QRCode value={value || ""} size={size} includeMargin renderAs="svg" />
-      </div>
-    </div>
-  );
-}
-
-// ---- utils ----
-function tagsToArr(s) {
-  return s
-    .split(/[,，]/)
-    .map((t) => t.trim())
-    .filter(Boolean);
-}
-function toTitleCase(s) {
-  return s.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-}
-function decodeURIComponentSafe(s) {
-  try {
-    return decodeURIComponent(s);
-  } catch (e) {
-    return s;
-  }
-}
-function tryBase64Decode(s) {
-  try {
-    return decodeURIComponent(escape(atob(s)));
-  } catch (e) {
-    return s;
-  }
-}
+function toastMsg(msg){ toast.textContent = msg; toast.classList.add("show"); setTimeout(()=>toast.classList.remove("show"), 1400); }
+</script>
+</body>
+</html>
