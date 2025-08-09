@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>我的收藏与工具（本地版）</title>
+<style>
+  :root{
+    --bg:#f6f7fb; --fg:#0f172a; --muted:#64748b; --card:#ffffff; --border:#e2e8f0; --accent:#0ea5e9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+  header{position:sticky;top:0;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);}
+  .wrap{max-width:1100px;margin:0 auto;padding:12px 16px}
+  h1{font-size:18px;margin:0 12px 0 0;display:flex;align-items:center;gap:8px}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  input[type="text"], input[type="url"], select, textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:10px;outline:0}
+  button{border:1px solid var(--border);background:#fff;border-radius:10px;padding:8px 12px;cursor:pointer}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.ghost{background:transparent}
+  .chip{padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:#fff;cursor:pointer;font-size:12px}
+  .chip.active{background:#0f172a;color:#fff;border-color:#0f172a}
+  main{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+  @media(max-width:960px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card .hd{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:end}
+  .card .bd{padding:12px 14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:1200px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  .link{border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;gap:10px;align-items:flex-start;background:#fff}
+  .link .icon{width:32px;height:32px;border-radius:8px;background:#f1f5f9;display:grid;place-items:center;font-size:16px}
+  .link .ttl{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .link .host{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .link .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-size:10px;border:1px solid var(--border);border-radius:999px;padding:2px 6px}
+  .actions{margin-left:auto;display:flex;gap:6px}
+  .muted{color:var(--muted)}
+  .toolbar{display:flex;gap:8px;overflow:auto;padding-bottom:8px}
+  .right{margin-left:auto}
+  .tools .item{display:grid;gap:8px}
+  .flex{display:flex;gap:8px}
+  .hidden{display:none !important}
+  footer{color:var(--muted);text-align:center;padding:16px 0}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap row">
+    <h1>🔧 我的收藏与工具</h1>
+    <input id="search" type="text" placeholder="搜索 标题 / 链接 / 标签" style="flex:1;max-width:380px" />
+    <button id="addBtn" class="primary">+ 添加链接</button>
+    <div class="right row">
+      <button id="exportBtn">导出</button>
+      <label class="chip">导入<input id="importFile" type="file" accept="application/json" class="hidden"></label>
+    </div>
+  </div>
+  <div class="wrap toolbar" id="catBar"></div>
+</header>
+
+<main class="wrap">
+  <section class="card">
+    <div class="hd"><div>链接库 <span class="muted" id="countInfo"></span></div></div>
+    <div class="bd">
+      <div class="grid" id="linksGrid"></div>
+    </div>
+  </section>
+
+  <aside class="card tools">
+    <div class="hd"><div>常用小工具</div></div>
+    <div class="bd item">
+      <div class="item">
+        <div><b>URL 编解码</b></div>
+        <textarea id="urlbox" rows="4" placeholder="输入要编码/解码的文本"></textarea>
+        <div class="flex">
+          <button onclick="urlEncode()">编码</button>
+          <button onclick="urlDecode()">解码</button>
+        </div>
+      </div>
+      <hr/>
+      <div class="item">
+        <div><b>Base64 编解码</b></div>
+        <textarea id="b64box" rows="4" placeholder="输入要 Base64 编码/解码的文本"></textarea>
+        <div class="flex">
+          <button onclick="b64Encode()">编码</button>
+          <button onclick="b64Decode()">解码</button>
+        </div>
+      </div>
+      <hr/>
+      <div class="item">
+        <div><b>文本大小写转换</b></div>
+        <textarea id="casebox" rows="4" placeholder="输入文本"></textarea>
+        <div class="flex">
+          <button onclick="toUpper()">UPPER</button>
+          <button onclick="toLower()">lower</button>
+          <button onclick="toTitle()">Title Case</button>
+          <button onclick="copyFrom('casebox')">复制</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer class="wrap">数据保存在你的浏览器（localStorage）。清理浏览器数据会清空收藏。</footer>
+
+<!-- 简单弹窗（添加/编辑） -->
+<div id="modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:grid;place-items:center;padding:16px">
+  <div style="width:min(560px,100%);background:#fff;border:1px solid var(--border);border-radius:16px">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <b id="modalTitle">添加链接</b>
+      <button onclick="closeModal()">✕</button>
+    </div>
+    <div style="padding:12px 14px;display:grid;gap:8px">
+      <label>分类
+        <select id="formCat"></select>
+      </label>
+      <label>标题
+        <input id="formTitle" type="text" placeholder="例如：Google Scholar" />
+      </label>
+      <label>URL
+        <input id="formUrl" type="url" placeholder="https://..." />
+      </label>
+      <label>标签（用逗号分隔）
+        <input id="formTags" type="text" placeholder="paper, ai, tool" />
+      </label>
+      <label><input id="formStar" type="checkbox" /> 设为收藏</label>
+      <div class="row" style="justify-content:end">
+        <button class="ghost" onclick="closeModal()">取消</button>
+        <button class="primary" id="saveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ----- 数据与存取 -----
+const STORAGE_KEY = "my_links_hub_simple_v1";
+const DEFAULT_DATA = [
+  {id:"dev", name:"开发 / Developer", links:[
+    {id:uid(), title:"GitHub", url:"https://github.com", tags:["code","repo"], starred:true},
+    {id:uid(), title:"Stack Overflow", url:"https://stackoverflow.com", tags:["qa"]},
+    {id:uid(), title:"MDN Docs", url:"https://developer.mozilla.org", tags:["docs"]},
+  ]},
+  {id:"research", name:"研究 / Research", links:[
+    {id:uid(), title:"Google Scholar", url:"https://scholar.google.com", tags:["paper"], starred:true},
+    {id:uid(), title:"arXiv", url:"https://arxiv.org", tags:["preprint"]},
+  ]},
+  {id:"life", name:"生活 / Life", links:[
+    {id:uid(), title:"Bilibili", url:"https://www.bilibili.com", tags:["video"]},
+  ]},
+];
+let state = load() || DEFAULT_DATA;
+function load(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||""); }catch(e){ return null; } }
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+// ----- UI 状态 -----
+let activeCat = "all";
+let search = "";
+
+// ----- DOM 引用 -----
+const catBar = document.getElementById("catBar");
+const grid = document.getElementById("linksGrid");
+const countInfo = document.getElementById("countInfo");
+const searchBox = document.getElementById("search");
+const addBtn = document.getElementById("addBtn");
+const exportBtn = document.getElementById("exportBtn");
+const importFile = document.getElementById("importFile");
+
+// modal form
+const modal = document.getElementById("modal");
+const modalTitle = document.getElementById("modalTitle");
+const formCat = document.getElementById("formCat");
+const formTitle = document.getElementById("formTitle");
+const formUrl = document.getElementById("formUrl");
+const formTags = document.getElementById("formTags");
+const formStar = document.getElementById("formStar");
+const saveBtn = document.getElementById("saveBtn");
+let editing = null; // {catId, linkId}
+
+// ----- 初始化 -----
+renderCats();
+renderLinks();
+searchBox.addEventListener("input", e => { search = e.target.value.trim().toLowerCase(); renderLinks(); });
+addBtn.addEventListener("click", () => openAddModal());
+exportBtn.addEventListener("click", onExport);
+importFile.addEventListener("change", onImport);
+
+// ----- 渲染分类与链接 -----
+function renderCats(){
+  const cats = [{id:"all", name:"全部"}, {id:"star", name:"⭐ 收藏"}, ...state.map(c => ({id:c.id, name:c.name}))];
+  catBar.innerHTML = "";
+  cats.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (activeCat===c.id ? " active" : "");
+    btn.textContent = c.name;
+    btn.onclick = () => { activeCat = c.id; renderLinks(); renderCats(); };
+    catBar.appendChild(btn);
+  });
+  // 添加“新建分类”按钮
+  const addCat = document.createElement("button");
+  addCat.className = "chip";
+  addCat.textContent = "新建分类";
+  addCat.onclick = () => {
+    const name = prompt("分类名称（如：学习、工作…）");
+    if(!name) return;
+    const id = name.toLowerCase().replace(/\\s+/g,"-") + "-" + Date.now().toString().slice(-4);
+    state = [{id, name, links:[]}, ...state];
+    save(); renderCats();
+  };
+  catBar.appendChild(addCat);
+}
+
+function renderLinks(){
+  const allLinks = state.flatMap(c => c.links.map(l => ({...l, catId:c.id, catName:c.name})));
+  const filtered = allLinks.filter(l => {
+    const inCat = activeCat==="all" || l.catId===activeCat || (activeCat==="star" && l.starred);
+    if(!inCat) return false;
+    if(!search) return true;
+    return (l.title?.toLowerCase().includes(search) ||
+            l.url?.toLowerCase().includes(search) ||
+            (l.tags||[]).some(t => t.toLowerCase().includes(search)));
+  });
+  countInfo.textContent = `（共 ${filtered.length} 条）`;
+  grid.innerHTML = "";
+  filtered.forEach(l => grid.appendChild(linkNode(l)));
+}
+
+function linkNode(l){
+  const host = safeHost(l.url);
+  const el = document.createElement("div");
+  el.className = "link";
+  el.innerHTML = `
+    <div class="icon">🔗</div>
+    <div style="min-width:0;flex:1">
+      <div class="ttl" title="${escapeHtml(l.title||"")}">${escapeHtml(l.title||"")}</div>
+      <div class="host muted" title="${escapeHtml(host)}">${escapeHtml(host)}</div>
+      ${(l.tags?.length?`<div class="tags">${l.tags.map(t=>`<span class="tag">#${escapeHtml(t)}</span>`).join("")}</div>`:"")}
+    </div>
+    <div class="actions">
+      <button title="收藏/取消收藏" onclick="toggleStar('${l.catId}','${l.id}')">${l.starred?"⭐":"☆"}</button>
+      <a href="${escapeAttr(l.url||"#")}" target="_blank"><button title="打开">↗</button></a>
+      <button title="编辑" onclick="openEditModal('${l.catId}','${l.id}')">✎</button>
+      <button title="删除" onclick="delLink('${l.catId}','${l.id}')">🗑</button>
+    </div>`;
+  return el;
+}
+
+// ----- 交互：添加/编辑/删除/收藏 -----
+function openAddModal(){
+  editing = null;
+  modalTitle.textContent = "添加链接";
+  fillCatOptions();
+  formTitle.value = ""; formUrl.value = ""; formTags.value = ""; formStar.checked = false;
+  saveBtn.onclick = () => {
+    const c = formCat.value, t=formTitle.value.trim(), u=formUrl.value.trim();
+    if(!c || !t || !u) return alert("请填写完整：分类、标题、URL");
+    addLink(c, {title:t, url:u, tags:splitTags(formTags.value), starred:formStar.checked});
+    closeModal();
+  };
+  openModal();
+}
+
+function openEditModal(catId, linkId){
+  editing = {catId, linkId};
+  modalTitle.textContent = "编辑链接";
+  fillCatOptions(catId);
+  const link = state.find(c=>c.id===catId).links.find(x=>x.id===linkId);
+  formTitle.value = link.title||""; formUrl.value = link.url||""; formTags.value = (link.tags||[]).join(", "); formStar.checked = !!link.starred;
+  saveBtn.onclick = () => {
+    updateLink(catId, linkId, {title:formTitle.value.trim(), url:formUrl.value.trim(), tags:splitTags(formTags.value), starred:formStar.checked});
+    closeModal();
+  };
+  openModal();
+}
+function openModal(){ modal.classList.remove("hidden"); }
+function closeModal(){ modal.classList.add("hidden"); }
+
+function fillCatOptions(selectedId){
+  formCat.innerHTML = state.map(c=>`<option value="${c.id}" ${selectedId===c.id?"selected":""}>${escapeHtml(c.name)}</option>`).join("");
+}
+
+function addLink(catId, payload){
+  const idx = state.findIndex(c=>c.id===catId);
+  if(idx<0) return;
+  state[idx] = {...state[idx], links:[{id:uid(), ...payload}, ...state[idx].links]};
+  save(); renderLinks();
+}
+function updateLink(catId, linkId, payload){
+  state = state.map(c => c.id===catId ? {...c, links: c.links.map(l => l.id===linkId ? {...l, ...payload} : l)} : c);
+  save(); renderLinks();
+}
+function delLink(catId, linkId){
+  if(!confirm("确定要删除这条链接吗？")) return;
+  state = state.map(c => c.id===catId ? {...c, links: c.links.filter(l=>l.id!==linkId)} : c);
+  save(); renderLinks();
+}
+function toggleStar(catId, linkId){
+  state = state.map(c => c.id===catId ? {...c, links: c.links.map(l => l.id===linkId ? {...l, starred:!l.starred} : l)} : c);
+  save(); renderLinks();
+}
+
+// ----- 备份/恢复 -----
+function onExport(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "my-links-backup.json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+async function onImport(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const text = await file.text();
+  try{
+    const data = JSON.parse(text);
+    if(!Array.isArray(data)) throw new Error("格式不正确");
+    state = data; save(); renderCats(); renderLinks();
+    alert("导入成功！");
+  }catch(err){ alert("导入失败：" + err.message); }
+  e.target.value = "";
+}
+
+// ----- 小工具函数 -----
+function uid(){ return Math.random().toString(36).slice(2) + Date.now().toString(36).slice(-4); }
+function splitTags(s){ return s.split(/[，,]/).map(t=>t.trim()).filter(Boolean); }
+function safeHost(url){ try{ return new URL(url).hostname.replace(/^www\\./,""); }catch(e){ return ""; } }
+function escapeHtml(s){ return (s||"").replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\\'':'&#39;'}[c])); }
+function escapeAttr(s){ return escapeHtml(s).replace(/\"/g,"&quot;"); }
+
+// 工具：URL 编解码
+function urlEncode(){ const el = document.getElementById("urlbox"); el.value = encodeURIComponent(el.value); }
+function urlDecode(){ const el = document.getElementById("urlbox"); try{ el.value = decodeURIComponent(el.value); }catch(e){ alert("无法解码：格式不正确"); } }
+// 工具：Base64
+function b64Encode(){ const el = document.getElementById("b64box"); el.value = btoa(unescape(encodeURIComponent(el.value))); }
+function b64Decode(){ const el = document.getElementById("b64box"); try{ el.value = decodeURIComponent(escape(atob(el.value))); }catch(e){ alert("无法解码：格式不正确"); } }
+// 工具：大小写
+function toUpper(){ const el = document.getElementById("casebox"); el.value = el.value.toUpperCase(); }
+function toLower(){ const el = document.getElementById("casebox"); el.value = el.value.toLowerCase(); }
+function toTitle(){ const el = document.getElementById("casebox"); el.value = el.value.replace(/\\w\\S*/g, w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()); }
+function copyFrom(id){ const el = document.getElementById(id); el.select(); document.execCommand('copy'); }
+
+// 键盘：Esc 关闭弹窗
+document.addEventListener("keydown", e => { if(e.key==="Escape" && !modal.classList.contains("hidden")) closeModal(); });
+</script>
+</body>
+</html>
